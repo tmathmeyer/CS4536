@@ -1,11 +1,15 @@
 #lang plai-typed
 
-;; helpers
-;; (num -> num) -> [num] -> [num]
-(define (nmap [fn : (number -> number)] [ln : (listof number)]) : (listof number)
-  (cond ((empty? ln) empty)
-        ((cons? ln) (cons (fn (first ln)) (nmap fn (rest ln))))))
+;;;;
+;
+; Ted Meyer
+;
+; each question follows its numbered comment
+; tests follow the function definitions
+;
+;;;;
 
+;; a helper function
 ;; (num -> num -> num) -> [num] -> num
 (define (nfold fn ln) : number
   (cond ((empty? ln) 0)
@@ -25,6 +29,15 @@
 (test (sum-num empty) 0)
 
 
+
+
+
+
+
+
+
+
+
 ;; problem 2
 ;; [num] -> num
 (define (sum-neg list-num) : number
@@ -34,12 +47,30 @@
 (test (sum-neg empty) 0)
 
 
+
+
+
+
+
+
+
+
+
 ;; problem 3
 ;; [num] -> num
 (define (raise list-num) : (listof number)
   (map (λ (x) (cond ((> 0 x) 0) (else x))) list-num))
 (test (raise (list -1 -2 -3 -4)) (list 0 0 0 0))
 (test (raise empty) empty)
+
+
+
+
+
+
+
+
+
 
 
 ;; problem 4
@@ -55,6 +86,14 @@
 (test (alternating (list 1)) (list 1))
 (test (alternating (list 1 2 3 4)) (list 1 3))
 (test (alternating (list "hi" "there" "mom")) (list "hi" "mom"))
+
+
+
+
+
+
+
+
 
 
 ;; problem 5
@@ -77,6 +116,15 @@
 (define me (undergraduate "ted" perfect 2016))
 
 
+
+
+
+
+
+
+
+
+
 ;; problem 7
 ;; [Student] -> [Student]
 (define (assign-grades (lst : (listof Students))) : (listof Students)
@@ -93,7 +141,15 @@
                          (undergraduate "ted"    (scores 100 100 "high pass") 2016)))
 (test (assign-grades pre-grade) post-grade)
 (test (assign-grades empty) empty)
-         
+     
+
+
+
+
+
+
+
+
          
 ;; problem 8
 ;; [Student] -> boolean
@@ -108,8 +164,21 @@
 (test (all-phd-pass? (assign-grades (list stu-a stu-b me my-sister))) #t)
         
          
-;; problem 9
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+;; problem 9
 (define (sort-by-midterm (ln : (listof Students))) : (listof Students)
   (student-sort midterm-order ln))
 
@@ -145,6 +214,15 @@
 (test (student-sort midterm-order (list stu-c stu-b stu-a)) (list stu-a stu-b stu-c))
   
   
+
+
+
+
+
+
+
+
+
   
 ;; problem 10
 ; Yes, this could easily support surting by any criteria on the student type, as the sort-students
