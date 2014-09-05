@@ -17,6 +17,3 @@
     (multC (l r) (* (interp l) (interp r)))))
 
 (define fifty (multC ten five))
-
-(define (parse (inp : s-expression)) : ArithC
-  
