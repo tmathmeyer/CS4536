@@ -1,0 +1,15 @@
+Having only gotten one review so far,
+the main thing that I could have done
+better is describe the functions. My
+current comments consist of nothing
+but the type signiture of the functions,
+done in the haskell way, in that they
+use currying notation. The other main
+issue that was brought up was using 
+else instead of cons? in cond branches
+but I think this is more a matter of 
+style than anything, and I think I'll
+keep doing it that way. I also liked
+the (max 0 val) trick that I saw in
+another assignment, and wish I had
+done it that way.
