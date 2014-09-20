@@ -87,14 +87,14 @@
   (run/env sexp mt-env))
 
 (define (lookup (id : symbol) (context : Env)) : Value
-  (cond ((empty? context) (error 'fail "undefined variable"))
+  (cond ((empty? context) (error id "unbound identifier"))
         ((symbol=? (bind-name (first context)) id) (bind-val (first context)))
         (else (lookup id (rest context)))))
 
 (define (operate-on-numeric-values (op : (number number -> number)) (init : number) (values : (listof Value))) : number
   (foldl (λ ((x : Value) (y : number)) (type-case Value x
                     (numV (n) (op y n))
-                    (closV (a b e) (error 'fail "shit you cant do that")))) init values))
+                    (closV (a b e) (error 'fail "type error")))) init values))
 
 (define (numV=? (a : number) (b : Value))
   (= a (numV-n b)))
@@ -110,8 +110,8 @@
     (numC (n) (numV n))
     (appC (func args) (let ((clos (interp func c)))
                         (interp (closV-body clos)
-                                (append (closV-env clos)
-                                        (map2 (λ (name expr) (bind name (interp expr c))) (closV-args clos) args)))))))
+                                (append (map2 (λ (name expr) (bind name (interp expr c))) (closV-args clos) args)
+                                        (closV-env clos)))))))
     
     
          
@@ -125,8 +125,18 @@
     (idS (i) (idC i))
     (appS (f args) (appC (desugar f) (map desugar args)))
     (if0S (c t e) (if0C (desugar c) (desugar t) (desugar e)))
-    (lamS (args body) (lamC args (desugar body)))
-    (withS (bin bod) (appC (lamC (map defS-name bin) (desugar bod)) (map (λ (x) (desugar (defS-val x))) bin)))))
+    (lamS (args body) (cond ((list-has-dupes? args) (error 'fail "multiple identifier"))
+                            (else (lamC args (desugar body)))))
+    (withS (bin bod) (cond ((list-has-dupes? (map (λ (x) (defS-name x)) bin)) (error 'fail "multiple identifier"))
+                           (else (appC (lamC (map defS-name bin) (desugar bod))
+                                       (map (λ (x) (desugar (defS-val x))) bin)))))))
+
+
+
+(define (list-has-dupes? (list : (listof symbol))) : boolean
+  (cond ((empty? list) false)
+        ((cons?  list) (or (not (empty? (filter (λ (x) (symbol=? x (first list))) (rest list))))
+                            (list-has-dupes? (rest list))))))
 
 
 (define PARSED (parse '(with ((x 5)) x)))
@@ -136,39 +146,3 @@
                               (n (lambda (x) (* x 5)))
                               (combo (lambda (a b c d) (* (+ (f a) (g b)) (+ (m c) (n d))))))
                              (combo 1 2 3 4))))
-
-
-
-;; basic numbers
-(test (run '5) (numV 5))
-
-;; basic arithmetic
-(test (run '(+ 5 5)) (numV 10))
-(test (run '(- 5 5)) (numV 0))
-(test (run '(* 5 5)) (numV 25))
-
-;; conditionals
-(test (run '(if0 0 0 0)) (numV 0)) ;; does ANYTHING
-(test (run '(if0 0 1 0)) (numV 1))
-(test (run '(if0 1 0 1)) (numV 1))
-(test (run '(if0 -1 0 1)) (numV 1))
-
-;; local binding
-(test (run '(with ((x 5)) x)) (numV 5))
-(test (run '(with ((x 5)) (with ((y x)) (* y x)))) (numV 25))
-(test (run '(with ((x 5)) (with ((y x)) (with ((x y)) (* x x))))) (numV 25))
-
-;; local identifiers
-(test (run/env '(+ x x) (cons (bind 'x (numV 5)) empty)) (numV 10))
-
-;; functions
-(test (run '(with ((double (lambda (x) (+ x x)))) (double 5))) (numV 10))
-
-;(test (run '(with ((double (lambda (x) (+ x x)))
-;                   (square (lambda (x) (* x x)))
-;                   (recurs (lambda (x) (if0 x 0 (+ 1 (recurs (- x 1)))))))
-;                  (recurs 5))) (numV 5))
-
-(parse '(with ((recurs (lambda (x) (if0 x 0 (+ 1 (recurs (- x 1)))))))
-              (recurs 5)))
-
