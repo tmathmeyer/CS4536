@@ -1,0 +1,41 @@
+LANGUAGE DESIGN
+
+I've submitted both language discriptions in one file to make it easier on the
+graders and on myself. I've also changed my tests since last submission, and
+those are appended to the bottom of this file.
+
+what I tested:
+  - static vs dynamic scoping
+  - pass by reference / value / other
+  - function currying
+  - box operations and their effect on the store and context
+  - how the with statement is evaluated in regard to the order of arguments
+
+MARPLE:
+I noticed that marple has some interesting effects on the way that values are
+bound. because the with statement is being bound as a series of nexted lambdas,
+I was able to determine that the marple assignment was pass by reference, in
+that each time a new lambda is invoked, its the names of the formal parameters
+are essentially pointers to the actual parameters. This is why when you change
+the value that the actual parameters point to, you change what the formal
+parameters point to, but when you change what the formal parameters point to,
+you do not change the actual parameters at all. Marple also uses static scope.
+Marple is a curried language, ie, every function can have only one parameters,
+and functions declared with more than one are desugared to functions with only
+one. Box operations seem to not be in a functioning order, ie, setbox does not
+work. with statements are also all evaluated independantly of one another, such
+that variables declared previously in the same with block are not usable later
+in the definitions portion of the with.
+"definitions portion" = (with (definitions) body)
+
+
+SHERLOCK:
+Sherlock is also statically scoped, however in the case of with statements,
+later statements the definitions portion of the with statement are able to use
+variables defined in the earlier portions. Sherlock is also a pass by value
+interpreter, in that binding one variable to another literally points at them at
+the same piece of memory, and when that piece of memory is changed, that change
+reflects in all the variables. This language is also a curried language, which I
+described the definition of in the marple section. Because of the pass by value
+design, box operations (namely setbox) that did not work in the marple do in
+fact work in sherlock.
