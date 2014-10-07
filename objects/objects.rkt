@@ -18,8 +18,9 @@
                       (let ((all-methods (foldl append empty (list setters getters (classS-methods c)))))
                          (lamS (list 'func-name) (varcaseS 'func-name all-methods (appS (idS 'parent) (list (idS 'func-name))))))))))))
 
+;; if parent is object, do invalid op for error
 (define (make-parent class-name class-args)
-  (cond ((symbol=? 'Object class-name) (lamS (list 'func-name) (numS -9876543456789)))
+  (cond ((symbol=? 'Object class-name) (lamS (list 'func-name) (appS (numS 0) empty)))
         (else (newS class-name class-args))))
 
 (define (make-getters each)
