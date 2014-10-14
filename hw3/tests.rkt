@@ -1,55 +1,5 @@
 #lang plai-typed
 
-(require (typed-in racket/sandbox [call-with-limits : (number boolean (-> 'a) -> 'a)]))
-
-;; the types in the interpreter
-
-(define-type Value
- [numV (n : number)]
- [boxV (l : Location)]
- [closV (arg : symbol) (body : ExprC) (env : Env)])
-
-; environment mapping to locations
-
-(define-type Binding
- [bind (name : symbol) (loc : Location)])
-    (define-type-alias Env (listof Binding))
-(define-type-alias Location number)
-
-    ; ExprC (captures single arg functions, but input language 
-            ;   still supports multiple args, as shown in the grammar 
-            ;   on the assignment page.  Recommend that you avoid writing
-            ;   tests that result in closV with lambdas or apps in the body
-            ;   for the first part of the assignment (having internal closV
-                ;   in your tested expressions is just fine.))
-
-    (define-type ExprC
-     [numC (n : number)]
-     [plusC (l : ExprC) (r : ExprC)]
-     [multC (l : ExprC) (r : ExprC)]
-     [idC (i : symbol)]
-     [appC (f : ExprC) (arg : ExprC)]
-     [if0C (c : ExprC) (t : ExprC) (e : ExprC)]
-     [lamC (arg : symbol) (body : ExprC)]
-     [boxC (arg : ExprC)]
-     [unboxC (arg : ExprC)]
-     [setboxC (b : ExprC) (v : ExprC)]
-     [seqC (b1 : ExprC) (b2 : ExprC)]
-     [setC (var : symbol) (arg : ExprC)]
-    )
-
-    ;; a stub of a run function
-
-    (define (run [sexp : s-expression]) : Value
-     (call-with-limits 
-      10 #f
-      (lambda () (numV 0))))
-
-                            ;; insert your tests here to check.  For example:
-
-                            (test (run '(with ((x 3)) x))
-                             (numV 3))
-
 ;; test arithmetic
 (test (run '(+ 3 3)) (numV 6))
 (test (run '(* 3 3)) (numV 9))
@@ -76,28 +26,33 @@
 (test (run '(unbox (box 4))) (numV 4))
 (test (run '(with ((boxxy (box 4))) (unbox boxxy))) (numV 4))
 (test (run '(with ((count (box 0)))
-                  (lambda () (with ((x (unbox count)))
-                                   (seq (setbox count (+ x 1)) x)))
-(test (run '((with ((count (box 0))) (lambda () (with ((x (unbox count))) (seq (setbox count (+ x 1)) x)))))
-(test (run '(
-(test (run '(
-(test (run '(
-(test (run '(
-(test (run '(
-(test (run '(
+                  (with ((next (lambda () (with ((x (unbox count)))
+                                                (seq (setbox count (+ x 1)) x)))))
+                        (next)))) (numV 1))
+
+(test (run '(with ((x (box 1))
+                   (y (box 1)))
+                  (+ (unbox x) (unbox y)))) (numV 2))
+
+(test (run '(with ((x (box 1)))
+                  (with ((y x))
+                        (seq (setbox y 2)
+                             (unbox x))))) (numV 1))
+
+
+;; test setting things
+(test (run '(with ((x 5))
+                  (seq (set x 6) x))) (numV 6))
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
+;; test the Y combinator
+(test (run '(with ((Y (lambda (le)
+                              ((lambda (f) (f f))
+                               (lambda (f) (le (lambda (x) ((f f) x))))))))
+                  (with ((factY (Y (lambda (factorial)
+                                           (lambda (n)
+                                                   (cond  ((= n 0) 1)
+                                                          ((= n 1) 1)
+                                                          (else (* n (factorial (- n 1))))))))))
+                        (factY 5)))) (numV 120))
