@@ -37,72 +37,6 @@
   [tlistT (elem : Type)]
   [funT (arg : Type) (return : Type)]
   [varT (v : symbol)])
-  
-; equality checker for types that supports type variables.
-;  two types are equal if there exists a one-to-one mapping between
-;  their variable names under which the types become lexically identical
-;  (in addition to structurally identical)
-(define (type=? (t1 : Type) (t2 : Type)) : boolean
-  (local ([define ht1 (make-hash empty)] ; maps vars in t1 to vars in t2
-          [define ht2 (make-hash empty)] ; vice versa
-          [define (teq? t1 t2)
-            (cond
-              [(and (numT? t1) (numT? t2)) true]
-              [(and (boolT? t1) (boolT? t2)) true]
-              [(and (tlistT? t1) (tlistT? t2))
-               (teq? (tlistT-elem t1) (tlistT-elem t2))]
-              [(and (funT? t1) (funT? t2))
-               (and (teq? (funT-arg t1) (funT-arg t2))
-                    (teq? (funT-return t1) (funT-return t2)))]
-              [(and (varT? t1) (varT? t2))
-               ; v1 is the type that ht1 says that t1 maps to, or the var of t2 if no mapping exists
-               ; v2 is analogous
-               (let ([v1 (let ([r (hash-ref ht1 (varT-v t1))])
-                           (if (some? r) 
-                               ; var is in the hash, return the mapped value
-                               (some-v r)
-                               ; else add new mapping to hash and return the newly mapped variable
-                               (begin (hash-set! ht1 (varT-v t1) (varT-v t2))
-                                      (varT-v t2))))]
-                     [v2 (let ([r (hash-ref ht2 (varT-v t2))])
-                           (if (some? r)
-                               (some-v r)
-                               (begin (hash-set! ht2 (varT-v t2) (varT-v t1))
-                                      (varT-v t1))))])
-                 ; we have to check both mappings, so that distinct variables
-                 ; are kept distinct. i.e. a -> b should not be isomorphic to
-                 ; c -> c under the one-way mapping a => c, b => c.
-                 (and (symbol=? (varT-v t2) v1) (symbol=? (varT-v t1) v2)))]
-              [else false])]) ; types aren't equal
-    (teq? t1 t2)))
-
-#|
-Here are some examples of type=? so you can see what it should do.  Feel free
-to delete this from the starter file once you understand type=?
-
-(test (type=? (varT 'a) (varT 'b)) true)
-
-(test (type=? (funT (varT 'a) (varT 'a)) 
-              (funT (numT) (numT)))
-      false)
-
-(test (type=? (funT (varT 'a) (varT 'a)) 
-              (funT (varT 'b) (varT 'b)))
-      true)
-
-(test (type=? (funT (varT 'a) (varT 'b)) 
-              (funT (varT 'b) (varT 'b)))
-      false)
-
-(test (type=? (funT (varT 'a) (varT 'b)) 
-              (funT (varT 'b) (varT 'a)))
-      true)
-
-(test (type=? (funT (varT 'a) (varT 'a)) 
-              (funT (varT 'b) (varT 'a)))
-      false)
-|#
-
 
 ;;;;;;;;;;;; Parser ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -135,13 +69,17 @@ to delete this from the starter file once you understand type=?
                                           (parse (second binding))
                                           (parse body)))))]
                 [(rec) (let ([bindings (s-exp->list (second sl))]
-                              [body (third sl)])
-                          (begin (unless (= 1 (length bindings))
-                                   (error 'parse (string-append "parse error: with expects list containing one binding but got " (to-string bindings))))
-                                 (let ([binding (s-exp->list (first bindings))])
-                                   (recS (s-exp->symbol (first binding))
-                                          (parse (second binding))
-                                          (parse body)))))]                
+                             [body (third sl)])
+                         (cond [(= 1 (length bindings)) ;; binding has form ((var val))
+                                (let ([binding (s-exp->list (first bindings))])
+                                  (recS (s-exp->symbol (first binding))
+                                        (parse (second binding))
+                                        (parse body)))]
+                               [(= 2 (length bindings)) ;; binding has form (var val)
+                                (recS (s-exp->symbol (first bindings))
+                                      (parse (second bindings))
+                                      (parse body))]
+	       [else (error 'parse "parse error: unrecognized binding format in rec bindings")]))]                
                 [(tcons) (tconsS (parse (second sl)) (parse (third sl)))]
                 [(tempty?) (tisEmptyS (parse (second sl)))]
                 [(tfirst) (tfirstS (parse (second sl)))]
@@ -154,7 +92,6 @@ to delete this from the starter file once you understand type=?
     [else (error 'parse "parse error: unexpected syntax")]))
 
 ;;;;;;;;;;;;;; type checker ;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(define PRETTY (list 'a 'b 'c 'd 'e 'f 'g 'h 'i 'j 'k 'l 'm 'n 'o 'p 'q 'r 's 't 'u 'v 'w 'x 'y 'z))
 
 (define (readable-map list fxn)
   (map fxn list))
@@ -222,22 +159,24 @@ to delete this from the starter file once you understand type=?
     (tisEmptyS (a) (append (bc a) (list (eqCon (tExp ast) (tBool)) (eqCon (tExp a) (tList (tList (tVar (gensym 't)))))))) ;;todo
     (tconsS (e l)  (tripend (bc e) (bc l) (list (eqCon (tExp l) (tList (tExp e))) (eqCon (tExp ast) (tList (tExp e))))))
     (bifS (c t f)  (quapend (bc c) (bc t) (bc f) (list (eqCon (tExp c) (tBool)) (eqCon (tExp t) (tExp f)) (eqCon (tExp ast) (tExp t)))))
-    (tfirstS (l)   (append (bc l) (let ((id (gensym 't)))
-                                    (list (eqCon (tExp ast) (tVar id))
-                                          (eqCon (tExp l) (tList (tVar id)))))))
+    (tfirstS (l)   (append (bc l) (let ((id (gensym 't))) (list (eqCon (tExp ast) (tVar id)) (eqCon (tExp l) (tList (tVar id)))))))
     (trestS (l)    (append (bc l) (let ((id (gensym 't))) (list (eqCon (tExp ast) (tList (tVar id))) (eqCon (tExp l) (tList (tVar id)))))))
     (appS (f a)    (tripend (bc f) (bc a) (list (eqCon (tExp f) (tArrow (tExp a) (tExp ast))))))
     (withS (b t e) (tripend (bc t) (bc e) (list (eqCon (tExp ast) (tExp e)) (eqCon (tVar b) (tExp t)))))
     (lamS (p b)    (cons (eqCon (tExp ast) (tArrow (tVar p) (tExp b))) (bc b)))
     (idS (n)       (list (eqCon (tExp ast) (tVar n))))
-    (recS (b t e)  empty)))
+    (recS (b t e)  (tripend (bc t) (bc e) (list (eqCon (tExp ast) (tExp e)) (eqCon (tVar b) (tExp t)))))))
+          
+          
+          ;; sym expr expr
 
 
 
 (define (unify (stack : (listof Constraint)) (subst : (listof Constraint))) : (listof Constraint)
   (cond ((empty? stack) subst)
         ((cons? stack) (let ((current (first stack)) (stack (rest stack)))
-                         (cond ((equal? (eqCon-lhs current) (eqCon-rhs current))
+                         (cond ((occurs-error current) (error 'err "occurs check")) 
+                               ((equal? (eqCon-lhs current) (eqCon-rhs current))
                                 (unify stack (cons current subst)))
                                ((is-identifier? (eqCon-lhs current))
                                 (let ((stack (replace-in-stack (eqCon-lhs current) (eqCon-rhs current) stack))
@@ -247,12 +186,20 @@ to delete this from the starter file once you understand type=?
                                 (let ((stack (replace-in-stack (eqCon-rhs current) (eqCon-lhs current) stack))
                                       (subst (replace-in-stack (eqCon-rhs current) (eqCon-lhs current) subst)))
                                   (unify stack (cons current subst))))
-                               ((matching-arity? current)
+                               ((double-arity? current)
                                 (let ((stack-additions (create-stack-additions current)))
                                   (let ((stack (append stack-additions stack)))
                                     (unify stack subst))))
-                               (else (begin (display current)
-                                            (error 'not-implemented "lol"))))))))
+                               ((single-arity? current)
+                                (let ((X (eqCon-lhs current)) (Y (eqCon-rhs current)))
+                                  (let ((stack-addition (eqCon (tList-t X) (tList-t Y))))
+                                    (let ((stack (cons stack-addition stack)))
+                                      (unify stack subst)))))
+                               (else (let ((X (eqCon-lhs current)) (Y (eqCon-rhs current)))
+                                       (error 'error (strc (list "type error: "
+                                                                 (t->s (t->t X))
+                                                                 " vs "
+                                                                 (t->s (t->t Y))))))))))))
 ;; Constants:
 ;;   tNum, tBool, tList, tArrow
 ;;
@@ -262,7 +209,6 @@ to delete this from the starter file once you understand type=?
   (type-case Term t
     (tVar (s) true)
     (tExp (s) true)
-    (tList (x) true)
     (else false)))
 
 (define (is-fn? (t : Term)) : boolean
@@ -270,9 +216,18 @@ to delete this from the starter file once you understand type=?
     (tArrow (a b) true)
     (else false)))
 
-(define (matching-arity? (c : Constraint)) : boolean
+(define (is-ls? (t : Term)) : boolean
+  (type-case Term t
+    (tList (b) true)
+    (else false)))
+
+(define (double-arity? (c : Constraint)) : boolean
   (and (is-fn? (eqCon-lhs c))
        (is-fn? (eqCon-rhs c))))
+
+(define (single-arity? (c : Constraint)) : boolean
+  (and (is-ls? (eqCon-lhs c))
+       (is-ls? (eqCon-rhs c))))
 
 (define (create-stack-additions (c : Constraint)) : (listof Constraint)
   (let ((X (eqCon-lhs c)) (Y (eqCon-rhs c)))
@@ -284,6 +239,18 @@ to delete this from the starter file once you understand type=?
   (readable-map st (lambda (each)
                      (eqCon (replace-in-eqCon from to (eqCon-lhs each))
                             (replace-in-eqCon from to (eqCon-rhs each))))))
+
+(define (occurs-check (from : Term) (to : Term)) : boolean
+  (type-case Term to
+    (tArrow (f t) (or (occurs-check from f) (occurs-check from t)))
+    (tList  (e)   (occurs-check from e))
+    (tVar   (s)   (equal? from to))
+    (else false)))
+
+(define (occurs-error (c : Constraint)) : boolean
+  (let ((X (eqCon-lhs c)) (Y (eqCon-rhs c)))
+    (or (occurs-check X Y)
+        (occurs-check Y X))))
 
 (define (replace-in-eqCon (from : Term) (to : Term) (of : Term)) : Term
   (cond ((equal? from of) to)
@@ -310,38 +277,6 @@ to delete this from the starter file once you understand type=?
     (tExp (exp) (equal? exp s))
     (else false)))
 
-(define (symlen (s : symbol)) : number
-  (string-length (symbol->string s)))
-
-(define (get-ugly-vars (t : Type)) : (listof symbol)
-  (type-case Type t
-    (tlistT (e) (get-ugly-vars e))
-    (funT (a t) (append (get-ugly-vars a) (get-ugly-vars t)))
-    (varT (n)   (cond ((> (symlen n) 1) (list n))))
-    (else empty)))
-
-(define (remove-dups from)
-  (cond ((empty? from) empty)
-        ((cons? from) (let ((f (first from)) (r (rest from)))
-                        (let ((r (filter (λ (x) (not (equal? x f))) r)))
-                          (cons f (remove-dups r)))))))
-
-(define (match-sym (bad : (listof symbol)) (good : (listof symbol))) : (listof Rebinding)
-  (cond ((empty? bad) empty)
-        ((cons? bad)  (cons (rebind (first bad) (first good))
-                            (match-sym (rest bad) (rest good))))))
-
-(define (rebind-ugly (t : Type) (with : (listof Rebinding))) : Type
-  (type-case Type t
-    (numT ()  (numT))
-    (boolT () (boolT))
-    (tlistT (e) (tlistT (rebind-ugly e with)))
-    (funT (a t) (funT (rebind-ugly a with) (rebind-ugly t with)))
-    (varT (n)   (varT (lookup n with)))))
-
-(define (beautify-type (t : Type)) : Type
-  (rebind-ugly t (match-sym (remove-dups (get-ugly-vars t)) PRETTY)))
-
 (define (t->t (t : Term)) : Type
   (type-case Term t
     (tNum ()      (numT))
@@ -351,13 +286,23 @@ to delete this from the starter file once you understand type=?
     (tArrow (i o) (funT (t->t i) (t->t o))) 
     (tExp (e)     (varT 'not-implemented))))
 
+(define (strc (l : (listof string))) : string
+  (foldr string-append "" l))
+
+(define (t->s (t : Type)) : string
+  (type-case Type t
+    (numT () "num")
+    (boolT () "bool")
+    (tlistT (e) (strc (list "[" (t->s e) "]")))
+    (funT (a t) (strc (list "(" (t->s a) " -> " (t->s t) ")"))) 
+    (varT (n)   (symbol->string n))))
+
 ; type-of :: Expr -> Type
 ; this will call generate-constraints and unify, in a way that
 ;  is consistent with your types for these functions
 (define (type-of (e : ExprS)) : Type
   (let ((utree (make-unique e empty)))
-    ;;(t->t (find-in-constraints (unify (bc utree) empty) utree))))
-    (beautify-type (t->t (find-in-constraints (unify (bc utree) empty) utree)))))
+    (t->t (find-in-constraints (unify (bc utree) empty) utree))))
 
 ;;;;;;;;;;;;; API for type checking programs ;;;;;;;;;;;
 
