@@ -219,10 +219,12 @@ to delete this from the starter file once you understand type=?
     (multS (a b)   (tripend (bc a) (bc b) (list (eqCon (tExp a) (tNum)) (eqCon (tExp b) (tNum)) (eqCon (tExp ast) (tNum)))))
     (bminusS (a b) (tripend (bc a) (bc b) (list (eqCon (tExp a) (tNum)) (eqCon (tExp b) (tNum)) (eqCon (tExp ast) (tNum)))))
     (iszeroS (a)   (append (bc a) (list (eqCon (tExp ast) (tBool)) (eqCon (tExp a) (tNum)))))
-    (tisEmptyS (a) (append (bc a) (list (eqCon (tExp ast) (tBool)) (eqCon (tExp a) (tList (tVar '_a))))))
+    (tisEmptyS (a) (append (bc a) (list (eqCon (tExp ast) (tBool)) (eqCon (tExp a) (tList (tList (tVar (gensym 't)))))))) ;;todo
     (tconsS (e l)  (tripend (bc e) (bc l) (list (eqCon (tExp l) (tList (tExp e))) (eqCon (tExp ast) (tList (tExp e))))))
     (bifS (c t f)  (quapend (bc c) (bc t) (bc f) (list (eqCon (tExp c) (tBool)) (eqCon (tExp t) (tExp f)) (eqCon (tExp ast) (tExp t)))))
-    (tfirstS (l)   (append (bc l) (let ((id (gensym 't))) (list (eqCon (tExp ast) (tVar id)) (eqCon (tExp l) (tList (tVar id)))))))
+    (tfirstS (l)   (append (bc l) (let ((id (gensym 't)))
+                                    (list (eqCon (tExp ast) (tVar id))
+                                          (eqCon (tExp l) (tList (tVar id)))))))
     (trestS (l)    (append (bc l) (let ((id (gensym 't))) (list (eqCon (tExp ast) (tList (tVar id))) (eqCon (tExp l) (tList (tVar id)))))))
     (appS (f a)    (tripend (bc f) (bc a) (list (eqCon (tExp f) (tArrow (tExp a) (tExp ast))))))
     (withS (b t e) (tripend (bc t) (bc e) (list (eqCon (tExp ast) (tExp e)) (eqCon (tVar b) (tExp t)))))
@@ -249,7 +251,8 @@ to delete this from the starter file once you understand type=?
                                 (let ((stack-additions (create-stack-additions current)))
                                   (let ((stack (append stack-additions stack)))
                                     (unify stack subst))))
-                               (else (error 'not-implemented "lol")))))))
+                               (else (begin (display current)
+                                            (error 'not-implemented "lol"))))))))
 ;; Constants:
 ;;   tNum, tBool, tList, tArrow
 ;;
@@ -259,6 +262,7 @@ to delete this from the starter file once you understand type=?
   (type-case Term t
     (tVar (s) true)
     (tExp (s) true)
+    (tList (x) true)
     (else false)))
 
 (define (is-fn? (t : Term)) : boolean
@@ -284,8 +288,8 @@ to delete this from the starter file once you understand type=?
 (define (replace-in-eqCon (from : Term) (to : Term) (of : Term)) : Term
   (cond ((equal? from of) to)
         (else (type-case Term of
-                (tArrow (i o) (tArrow (replace-in-eqCon from to i) (replace-in-eqCon from to o))) ;; todo
-                (tList  (e)   (tList (replace-in-eqCon from to e))) ;; todo
+                (tArrow (i o) (tArrow (replace-in-eqCon from to i) (replace-in-eqCon from to o)))
+                (tList  (e)   (tList (replace-in-eqCon from to e)))
                 (else of)))))
 
 (define (find-in-constraints (con : (listof Constraint)) (search : ExprS)) : Term
@@ -352,6 +356,7 @@ to delete this from the starter file once you understand type=?
 ;  is consistent with your types for these functions
 (define (type-of (e : ExprS)) : Type
   (let ((utree (make-unique e empty)))
+    ;;(t->t (find-in-constraints (unify (bc utree) empty) utree))))
     (beautify-type (t->t (find-in-constraints (unify (bc utree) empty) utree)))))
 
 ;;;;;;;;;;;;; API for type checking programs ;;;;;;;;;;;
